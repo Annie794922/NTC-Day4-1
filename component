@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <!-- 先把要做的事情釐清清楚，再逐一做拆解開始一項一項寫 -->
+  <!-- 1. 把三個component的模板(template)[html部分]都先刻出來(此時vue只用到component和template，還不用加入其他vue功能) -->
+  <!-- 2. 點選上一步/下一步切換頁面--透過createApp和component的methods進行函式運算並跳到不同的component -->
+  <!-- 頁面的切換基本上就是做一樣的事情，只是每個component裡的methods要傳送出去的參數不一樣 -->
+  <!-- 3. 儲存各個component裡的資料並傳到最後一頁--利用watch監聽、emit傳到外部供所有component使用、prop取用外部資料 -->
+
+
+  <script src="https://unpkg.com/vue@3"></script>
+
+  <div id="app">
+    <component :is="currentForm" @set-form="updateForm" @update="updateInfo" :form-data="form"></component>
+    <!-- 在set-form上面綁定事件，請它接收personal-component的methods的資料，並拿去執行外部的methods裡的updateForm函式 -->
+    <!-- 在update上面綁定事件，請它接收personal-component的watch的資料，並拿去執行外部的methods裡的updateInfo函式 -->
+    <!-- :是:v-bind的縮寫(對屬性、資料進行動態綁定)--將存放更新後資料的form裡面的值傳送到名為form-data的地方 -->
+  </div>
+  <!-- <address-component></address-component>
+    <final-component></final-component> -->
+
+  <script>
+    const app = Vue.createApp({
+      data() {
+        return {
+          currentForm: 'personal-component',
+          form: {} //設定一個空物件以存放輸入的資料並同步更新(放在外部才能提供給所有component使用)
+        }
+      },
+      methods: {
+        updateForm(formName) { //代入從personal-component接收到的資料去執行
+          console.log(formName)
+          this.currentForm = formName; //將data裡的currentForm的值切換成接收到的值(其他的component名稱)
+        },
+        updateInfo(inputData) {
+          console.log(inputData)
+          this.form[inputData.columnName] = inputData.columnValue; //將data裡的form當中的inputData.columnName的值切換成接收到的值(其他的component欄位中輸入的資料)
+          // 以上寫法的舉例: this.form['name'] = this.form.name 的意思(這裡是物件，不是陣列)
+          console.log(this.form)
+        }
+      }
+    });
+    app.component('personal-component', { //component命名時若使用到html保留字，會被html效果蓋過去 ex.address、article等
+      template: `
+       <label>姓名</label>
+       <input type="text" v-model="name"> <br>
+       <label>電話</label>
+       <input type="text" v-model="phone"> <br>
+       <button @click="nextStep">下一步</button>
+    `, //指定各個欄位資料時才開始使用v-model
+      data() {
+        return {
+          name: '', //用空字串存放輸入的文字
+          phone: ''
+        }
+      },
+      methods: {
+        nextStep() { //將address-component這個參數傳送到外部名為set-form的字裡
+          this.$emit('set-form', 'address-component');
+        }
+      },
+      watch: {
+        name: { //當前面data裡的name有異動時就執行將異動後的值傳送到外部的update的動作
+          handler(value) {
+            this.$emit('update', { columnName: 'name', columnValue: value })
+          }
+        },
+        //後台console: {columnName: 'name', columnValue: 'Lala'}
+        //以上會被自動切換成{name: 'Lala'}
+        phone: {
+          handler(value) {
+            this.$emit('update', { columnName: 'phone', columnValue: value })
+          }
+        ///後台console: {columnName: 'phone', columnValue: '093672'}
+        //以上(連同name的部分)會被自動切換成{name: 'Lala', phone: '093672'}
+        }
+      }
+    })
+    app.component('address-component', {
+      template: `
+       <label>地址</label>
+       <input type="text" v-model="address"> <br>
+       <button @click="previousStep">上一步</button>
+       <button @click="nextStep">下一步</button>
+    `, //上一步的連結邏輯和下一步相同，差別在於傳遞的值不一樣而已
+      data() {
+        return {
+          address: ''
+        }
+      }, methods: {
+        previousStep() {
+          this.$emit('set-form', 'personal-component');
+        },
+        nextStep() {
+          this.$emit('set-form', 'final-component');
+        }
+      },
+      watch: {
+        address: {
+          handler(value) {
+            this.$emit('update', { columnName: 'address', columnValue: value })
+          }
+        }
+      }
+    })
+
+    // {
+    //   name: 'John',
+    //   phone: '0988',
+    //   address: 'Taipei'
+    // }
+    // 先做好資料結構的設計和傳遞，再來逐一寫程式
+
+    app.component('final-component', {
+      // 用三個div空出位子以存放前面的資料
+      template: `
+       <h3>請確認資料:</h3>
+       <div>{{ formData['name'] }}</div>
+       <div>{{ formData['phone'] }}</div>
+       <div>{{ formData['address'] }}</div>
+       <button @click="previousStep">上一步</button>
+    `, //從外部的form-data接收到的值當中，個別指定裡面的key取出相對應的資料
+      props: ['formData'], //接收外部的form-data傳來的資料(使用者輸入的新資料)
+      methods: {
+        previousStep() {
+          this.$emit('set-form', 'address-component');
+        }
+      }
+    })
+    app.mount('#app')
+  </script>
+
+
+</body>
+
+</html>
